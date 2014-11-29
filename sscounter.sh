@@ -1,48 +1,21 @@
 #!/bin/bash
-TRA_FORMAT='%-5d\t%s\n'
-USER_FILE=ssusers
-TRAFFIC_LOG=traffic.log
+. sslib.sh
 
-if [ ! -f $TRAFFIC_LOG ]; then
-    awk '{if($1 > 0) printf("%-5d\t0\n", $1)}' $USER_FILE > $TRAFFIC_LOG
-else
-    awk '
-    BEGIN {
-        i=1;
-    }
-    {
-        if(FILENAME=="'$USER_FILE'"){
-            if($0 !~ /^#|^\s*$/){
-                port=$1;
-                user[i++]=port;
-            }
-        }
-        if(FILENAME=="'$TRAFFIC_LOG'"){
-            uport=$1;
-            utra=$2;
-            uta[uport]=utra;
-        }
-    }
-    END {
-        for(j=1;j<i;j++) {
-            port=user[j];
-            if(uta[port]>0) {
-                printf("'$TRA_FORMAT'", port, uta[port])
-            } else {
-                printf("%-5d\t0\n", port)
-            }
-        }
-    }' $USER_FILE $TRAFFIC_LOG > $TRAFFIC_LOG.tmp
-    mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
-fi
+update_or_create_traffic_file_from_users
+init_ipt_chains 
+#删除之前的iptables rules
+#del_pre_rules
+#添加最新的iptables rules
+add_new_rules
+calc_remaining
+check_traffic_against_limits
+> $ports_already_ban
 
 ISFIRST=1;
-IPT_TRA_LOG_tmp=ipt_tra.log.tmp
-IPT_TRA_LOG=ipt_tra.log
-MIN_TRA_LOG=min_tra.log
 while true; do
+# 是否第一次运行，第一次则生成临时流量记录
     if [ $ISFIRST -eq 1 ]; then 
-        iptables -nvx -L |
+        echo "$(iptables -nvx -L $SS_IN_RULES)" "$(iptables -nvx -L $SS_OUT_RULES)" |
         sed -nr '/ [sd]pt:[0-9]{1,5}$/ s/[sd]pt:([0-9]{1,5})/\1/p' |
         awk '
         {
@@ -58,7 +31,8 @@ while true; do
         ' > $IPT_TRA_LOG
         ISFIRST=0;
     else
-        iptables -nvx -L |
+#计算每个时间间隔内的流量使用量
+        echo "$(iptables -nvx -L $SS_IN_RULES)" "$(iptables -nvx -L $SS_OUT_RULES)" |
         sed -nr '/ [sd]pt:[0-9]{1,5}$/ s/[sd]pt:([0-9]{1,5})/\1/p' |
         awk '
         {
@@ -94,7 +68,11 @@ while true; do
         ' $IPT_TRA_LOG_tmp $IPT_TRA_LOG > $MIN_TRA_LOG
         mv $IPT_TRA_LOG_tmp $IPT_TRA_LOG
     fi
-    
+# 将流量记录添加到文件中 
+    while [ -e $TRAFFIC_LOG.lock ]; do
+        sleep 1
+    done
+    touch $TRAFFIC_LOG.lock
     awk '
     BEGIN {
         i=1;
@@ -119,5 +97,9 @@ while true; do
         }
     }' $MIN_TRA_LOG $TRAFFIC_LOG > $TRAFFIC_LOG.tmp
     mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
-    sleep 5 
+    rm $TRAFFIC_LOG.lock
+# 验证流量是否超过预设值
+    calc_remaining
+    check_traffic_against_limits
+    sleep $INTERVEL 
 done
