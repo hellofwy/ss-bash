@@ -1,3 +1,5 @@
 *.json
 ssusers
 *.log
+sstraffic
+tmp
