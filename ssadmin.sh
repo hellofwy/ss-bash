@@ -4,13 +4,12 @@
 
 #根据用户文件生成ssserver配置文件
 create_json () {
-    echo '{
-   "server": "'$SERVER_IP'",
-   "port_password": {' > $JSON_FILE.tmp
-    
+    echo '{' > $JSON_FILE.tmp
+    sed -E 's/(.*)/    \1/' $DIR/ssmlt.template >> $JSON_FILE.tmp 
     awk '
     BEGIN {
         i=1;
+        printf("    \"port_password\": {\n");
     }
     ! /^#|^\s*$/ {
         port=$1;
@@ -25,12 +24,10 @@ create_json () {
             if(j<i-1) printf(",");
             printf("\n");
         }
+        printf("    }\n");
     }
     ' $USER_FILE >> $JSON_FILE.tmp
-    echo '   },
-   "timeout": '$C_TIMEOUT',
-   "method": "'$C_METHOD'"
-}' >> $JSON_FILE.tmp
+    echo '}' >> $JSON_FILE.tmp
     mv $JSON_FILE.tmp $JSON_FILE
 
 }
@@ -143,7 +140,7 @@ del_user () {
 case $1 in
     add )
         shift
-        add_user $1 $2 $3 $4
+        add_user $1 $2 $3
         ;;
     del )
         shift
