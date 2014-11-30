@@ -36,8 +36,12 @@ run_ssserver () {
     echo $! > $SSSERVER_PID 
 }
 check_ssserver () {
-    ps $(cat $SSSERVER_PID) | grep ssserver 2>/dev/null
-    return $?
+    if [ -e $SSSERVER_PID ]; then
+        ps $(cat $SSSERVER_PID) 2>/dev/null | grep ssserver 2>/dev/null
+        return $?
+    else
+        return 1
+    fi
 }
 start_ss () {
     if [ -e $SSSERVER_PID ]; then
@@ -75,13 +79,29 @@ start_ss () {
 }
 
 stop_ss () {
-    kill `cat $SSSERVER_PID`
-    kill `cat $SSCOUNTER_PID`
-    rm $SSSERVER_PID $SSCOUNTER_PID
-    del_ipt_chains 2> /dev/null
-    echo 'ss服务器已关闭'
+    if check_ssserver; then 
+        kill `cat $SSSERVER_PID`
+        kill `cat $SSCOUNTER_PID`
+        rm $SSSERVER_PID $SSCOUNTER_PID
+        del_ipt_chains 2> /dev/null
+        echo 'ss服务器已关闭'
+    else
+        echo 'ss服务器未启动'
+    fi
 }
 
+restart_ss () {
+    stop_ss
+    start_ss
+}
+    
+status_ss () {
+    if check_ssserver; then 
+        echo 'ss服务器正在运行'
+    else
+        echo 'ss服务器未启动'
+    fi
+}
 add_user () {
     PORT=$1
     PWORD=$2
@@ -154,6 +174,12 @@ case $1 in
         ;;
     stop )
         stop_ss 
+        ;;
+    restart )
+        restart_ss 
+        ;;
+    status )
+        status_ss
         ;;
 esac
 
