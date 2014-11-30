@@ -1,6 +1,6 @@
 #!/bin/bash
-SSADMIN_DIR=`dirname $0`
 . sslib.sh
+
 
 #根据用户文件生成ssserver配置文件
 create_json () {
@@ -35,34 +35,34 @@ create_json () {
 
 }
 run_ssserver () {
-    ssserver -qq -c $JSON_FILE 2>&1 >/dev/null &
-    echo $! > ssserver.pid
+    ssserver -qq -c $JSON_FILE 2>/dev/null >/dev/null &
+    echo $! > $SSSERVER_PID 
 }
 check_ssserver () {
-    ps $(cat ssserver.pid) | grep ssserver 2>/dev/null
+    ps $(cat $SSSERVER_PID) | grep ssserver 2>/dev/null
     return $?
 }
 start_ss () {
-    if [ -e ssserver.pid ]; then
+    if [ -e $SSSERVER_PID ]; then
         if check_ssserver; then
             echo 'ss服务已启动，同一文件下不能启动多次！'
             exit 1
         else
-            rm ssserver.pid
+            rm $SSSERVER_PID
         fi
     fi
     create_json
 
-    if [ -e sscounter.pid ]; then
-        ps $(cat sscounter.pid) | grep sscounter 2>&1 >/dev/null
+    if [ -e $SSCOUNTER_PID ]; then
+        ps $(cat $SSCOUNTER_PID) | grep sscounter 2>&1 >/dev/null
         if [ $? -eq 0 ] ; then 
-            kill `cat sscounter.pid`
+            kill `cat $SSCOUNTER_PID`
         else
-            rm sscounter.pid
+            rm $SSCOUNTER_PID
         fi
     fi
-    ( $SSADMIN_DIR/sscounter.sh ) & 
-    echo $! > sscounter.pid
+    ( $DIR/sscounter.sh ) & 
+    echo $! > $SSCOUNTER_PID
     run_ssserver 
     echo '启动中...'
     sleep 1
@@ -70,17 +70,17 @@ start_ss () {
         echo 'ss服务器已启动'
     else
         echo 'ss服务启动失败'
-        kill `cat sscounter.pid`
-        rm sscounter.pid
+        kill `cat $SSCOUNTER_PID`
+        rm $SSCOUNTER_PID
         exit 1
     fi
 
 }
 
 stop_ss () {
-    kill `cat ssserver.pid`
-    kill `cat sscounter.pid`
-    rm ssserver.pid sscounter.pid
+    kill `cat $SSSERVER_PID`
+    kill `cat $SSCOUNTER_PID`
+    rm $SSSERVER_PID $SSCOUNTER_PID
     del_ipt_chains 2> /dev/null
     echo 'ss服务器已关闭'
 }
@@ -114,9 +114,9 @@ $PORT $PWORD $CMETHED $TLIMIT" >> $USER_FILE;
         echo "用户已存在!"
     fi
 # 重新生成配置文件，并加载
-    if [ -e ssserver.pid ]; then
+    if [ -e $SSSERVER_PID ]; then
         create_json
-        kill -s SIGQUIT `cat ssserver.pid`
+        kill -s SIGQUIT `cat $SSSERVER_PID`
         add_rules $PORT
         run_ssserver
     fi
@@ -130,9 +130,9 @@ del_user () {
         sed -i '/^\s*'$PORT'\s/ d' $USER_FILE
     fi
 # 重新生成配置文件，并加载
-    if [ -e ssserver.pid ]; then
+    if [ -e $SSSERVER_PID ]; then
         create_json
-        kill -s SIGQUIT `cat ssserver.pid`
+        kill -s SIGQUIT `cat $SSSERVER_PID`
         del_rules $PORT
         run_ssserver
     fi
@@ -143,25 +143,14 @@ del_user () {
 case $1 in
     add )
         shift
-        add_rules $1
+        add_user $1 $2 $3 $4
         ;;
     del )
         shift
-        del_rules $1
+        del_user $1
         ;;
     list )
         list_rules
-        ;;
-    au )
-        shift
-        add_user $1 $2 $3 $4
-        ;;
-    du )
-        shift
-        del_user $1
-        ;;
-    cjson )
-        create_json
         ;;
     start )
         start_ss 

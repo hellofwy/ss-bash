@@ -1,15 +1,33 @@
-USER_FILE=ssusers
-JSON_FILE=ssmlt.json
 SERVER_IP=127.0.0.1
 C_METHOD="aes-256-cfb"
 C_TIMEOUT=60
+INTERVEL=15
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do 
+      DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+      SOURCE="$(readlink "$SOURCE")"
+      [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" 
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+TMPDIR=$DIR/tmp
+if [ ! -e $TMPDIR ]; then
+    mkdir $TMPDIR;
+    chmod 777 $TMPDIR;
+fi
+
+USER_FILE=$DIR/ssusers
+JSON_FILE=$DIR/ssmlt.json
+TRAFFIC_FILE=$DIR/sstraffic
+
+SSSERVER_PID=$TMPDIR/ssserver.pid
+SSCOUNTER_PID=$TMPDIR/sscounter.pid
 
 TRA_FORMAT='%-5d\t%s\n'
-TRAFFIC_LOG=traffic.log
-INTERVEL=15
-IPT_TRA_LOG=ipt_tra.log
-IPT_TRA_LOG_tmp=ipt_tra_log.tmp
-MIN_TRA_LOG=min_tra.log
+TRAFFIC_LOG=$DIR/traffic.log
+IPT_TRA_LOG=$TMPDIR/ipt_tra.log
+MIN_TRA_LOG=$TMPDIR/min_tra.log
+PORTS_ALREADY_BAN=$TMPDIR/ports_already_ban.tmp
 
 SS_IN_RULES=ssinput
 SS_OUT_RULES=ssoutput
@@ -59,26 +77,15 @@ list_rules () {
     iptables -vnx -L $SS_OUT_RULES
 }
 
-#del_pre_rules () {
-#    if [ -e $IPT_RULES_HISTORY ]; then
-#        for port in `cat $IPT_RULES_HISTORY`
-#        do
-#            del_rules $port
-#        done 
-#    fi
-#}
-
 add_new_rules () {
     ports=`awk '
         {
             if($0 !~ /^#|^\s*$/) print $1
         }
     ' $USER_FILE`
-#    > $IPT_RULES_HISTORY
     for port in $ports
     do
         add_rules $port
-#        echo $port >> $IPT_RULES_HISTORY
     done
 }
 
@@ -124,6 +131,7 @@ update_or_create_traffic_file_from_users () {
 
     rm $TRAFFIC_LOG.lock
 }
+
 calc_remaining () {
     awk '
     function print_in_gb(bytes) {
@@ -184,10 +192,9 @@ calc_remaining () {
             print_in_gb(remaining);
             printf("\n");
         }
-    }' $USER_FILE $TRAFFIC_LOG > $TRAFFIC_LOG.res
+    }' $USER_FILE $TRAFFIC_LOG > $TRAFFIC_FILE
 }
 
-ports_already_ban=ports_already_ban.tmp
 check_traffic_against_limits () {
 #根据用户文件查看流量是否超限
     ports_2ban=`awk '
@@ -217,13 +224,91 @@ check_traffic_against_limits () {
         }
     }' $USER_FILE $TRAFFIC_LOG` 
     for p in $ports_2ban; do
-        if grep -q $p $ports_already_ban; then
+        if grep -q $p $PORTS_ALREADY_BAN; then
             continue;
         else 
             del_rules $p
             add_reject_rules $p
-            echo $p >> $ports_already_ban
+            echo $p >> $PORTS_ALREADY_BAN
         fi
     done
 }
+get_traffic_from_iptables () {
+        echo "$(iptables -nvx -L $SS_IN_RULES)" "$(iptables -nvx -L $SS_OUT_RULES)" |
+        sed -nr '/ [sd]pt:[0-9]{1,5}$/ s/[sd]pt:([0-9]{1,5})/\1/p' |
+        awk '
+        {
+           trans=$2;
+           port=$NF;
+           tr[port]+=trans;
+        }
+        END {
+            for(port in tr) {
+                printf("'$TRA_FORMAT'", port, tr[port]) 
+            }
+        }
+        '
+}
 
+get_traffic_from_iptables_first_time () {
+    get_traffic_from_iptables > $IPT_TRA_LOG
+}
+
+get_traffic_from_iptables_now () {
+    get_traffic_from_iptables > $IPT_TRA_LOG.tmp
+}
+
+calc_traffic_between_intervel () {
+        awk '
+        { 
+            if(FILENAME=="'$IPT_TRA_LOG.tmp'") {
+                port=$1;
+                tras=$2;
+                tr[port]=tras;
+            }
+            if(FILENAME=="'$IPT_TRA_LOG'") {
+                port=$1;
+                tras=$2;
+                pretr[port]=tras;
+            }
+        }
+        END {
+            for(port in tr) {
+                min_tras=tr[port]-pretr[port];
+                printf("'$TRA_FORMAT'", port, min_tras);
+            }
+        }
+        ' $IPT_TRA_LOG.tmp $IPT_TRA_LOG > $MIN_TRA_LOG
+        mv $IPT_TRA_LOG.tmp $IPT_TRA_LOG
+}
+update_traffic_record () {
+    while [ -e $TRAFFIC_LOG.lock ]; do
+        sleep 1
+    done
+    touch $TRAFFIC_LOG.lock
+    awk '
+    BEGIN {
+        i=1;
+    }
+    {
+        if(FILENAME=="'$MIN_TRA_LOG'"){
+            trans=$2;
+            port=$1;
+            ta[port]+=trans;
+        }
+        if(FILENAME=="'$TRAFFIC_LOG'"){
+            uport=$1;
+            utra=$2;
+            uta[uport]=utra;
+            useq[i++]=uport;
+        }
+    }
+    END {
+        for (j=1;j<i;j++) {
+            pt=useq[j];
+            printf("'$TRA_FORMAT'", pt, uta[pt]+ta[pt]);
+        }
+    }' $MIN_TRA_LOG $TRAFFIC_LOG > $TRAFFIC_LOG.tmp
+    mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
+    rm $TRAFFIC_LOG.lock
+}
