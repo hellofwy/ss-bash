@@ -303,6 +303,7 @@ calc_traffic_between_intervel () {
         END {
             for(port in tr) {
                 min_tras=tr[port]-pretr[port];
+                if(min_tras<0) min_tras=0;
                 printf("'$TRA_FORMAT'", port, min_tras);
             }
         }

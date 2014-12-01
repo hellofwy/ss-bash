@@ -35,6 +35,8 @@ while true; do
     if [ $ISFIRST -eq 1 ]; then 
         get_traffic_from_iptables_first_time
         ISFIRST=0;
+        sleep $INTERVEL 
+        continue
     else
 #计算每个时间间隔内的流量使用量
         get_traffic_from_iptables_now

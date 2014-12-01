@@ -71,6 +71,10 @@ check_ssserver () {
 }
 
 start_ss () {
+    if [ ! -e $USER_FILE ]; then
+        echo "还没有用户，请先添加一个用户"
+        return 1
+    fi
     if [ -e $SSSERVER_PID ]; then
         if check_ssserver; then
             echo 'ss服务已启动，同一文件下不能启动多次！'
@@ -570,7 +574,7 @@ case $1 in
         exit 0;
         ;;
     -v|v|version )
-        echo 'ss-bash Version 0.9, 2014-12-1, Copyright (c) 2014 hellofwy'
+        echo 'ss-bash Version 1.0-beta, 2014-12-1, Copyright (c) 2014 hellofwy'
         exit 0;
         ;;
 esac
@@ -578,7 +582,7 @@ if [ "$EUID" -ne 0 ]; then
     echo "必需以root身份运行，请使用sudo等命令"
     exit 1;
 fi
-if type $SSSERVER; then
+if type $SSSERVER 2>&1 >/dev/null; then
     :
 else
     echo "无法找到ssserver程序，请在sslib.sh中指定其路径"
