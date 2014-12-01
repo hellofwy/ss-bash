@@ -130,6 +130,10 @@ update_or_create_traffic_file_from_users () {
 }
 
 calc_remaining () {
+    while [ -e $TRAFFIC_FILE.lock ]; do
+        sleep 1
+    done
+    touch $TRAFFIC_FILE.lock
     awk '
     function print_in_gb(bytes) {
         tb=bytes/(1024*1024*1024*1024*1.0);
@@ -189,7 +193,9 @@ calc_remaining () {
             print_in_gb(remaining);
             printf("\n");
         }
-    }' $USER_FILE $TRAFFIC_LOG > $TRAFFIC_FILE
+    }' $USER_FILE $TRAFFIC_LOG > $TRAFFIC_FILE.tmp
+    mv $TRAFFIC_FILE.tmp $TRAFFIC_FILE
+    rm $TRAFFIC_FILE.lock
 }
 
 check_traffic_against_limits () {

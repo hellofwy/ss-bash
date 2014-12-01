@@ -31,10 +31,12 @@ create_json () {
     mv $JSON_FILE.tmp $JSON_FILE
 
 }
+
 run_ssserver () {
     ssserver -qq -c $JSON_FILE 2>/dev/null >/dev/null &
     echo $! > $SSSERVER_PID 
 }
+
 check_ssserver () {
     if [ -e $SSSERVER_PID ]; then
         ps $(cat $SSSERVER_PID) 2>/dev/null | grep ssserver 2>/dev/null
@@ -43,11 +45,12 @@ check_ssserver () {
         return 1
     fi
 }
+
 start_ss () {
     if [ -e $SSSERVER_PID ]; then
         if check_ssserver; then
             echo 'ss服务已启动，同一文件下不能启动多次！'
-            exit 1
+            return 1
         else
             rm $SSSERVER_PID
         fi
@@ -73,7 +76,7 @@ start_ss () {
         echo 'ss服务启动失败'
         kill `cat $SSCOUNTER_PID`
         rm $SSCOUNTER_PID
-        exit 1
+        return 1
     fi
 
 }
@@ -102,17 +105,23 @@ status_ss () {
         echo 'ss服务器未启动'
     fi
 }
+
+bytes2gb () {
+    TLIMIT=$1
+    echo "$TLIMIT" |
+    sed -E 's/[kK][bB]?/ * 1024/' |
+    sed -E 's/[mM][bB]?/ * 1024 * 1024/' |
+    sed -E 's/[gG][bB]?/ * 1024 * 1024 * 1024/' |
+    sed -E 's/[tT][bB]?/ * 1024 * 1024 * 1024 * 1024/' |
+    bc |
+    awk '{printf("%.0f", $1)}'
+}
+
 add_user () {
     PORT=$1
     PWORD=$2
     TLIMIT=$3
-    TLIMIT=`echo "$TLIMIT" |
-            sed -E 's/[kK][bB]?/ * 1024/' |
-            sed -E 's/[mM][bB]?/ * 1024 * 1024/' |
-            sed -E 's/[gG][bB]?/ * 1024 * 1024 * 1024/' |
-            sed -E 's/[tT][bB]?/ * 1024 * 1024 * 1024 * 1024/' |
-            bc |
-            awk '{printf("%.0f", $1)}'`
+    TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
         echo "\
 # 以空格、制表符分隔
@@ -126,9 +135,10 @@ add_user () {
     }'
     if [ $? -eq 0 ]; then
         echo "\
-$PORT $PWORD $CMETHED $TLIMIT" >> $USER_FILE;
+$PORT $PWORD $TLIMIT" >> $USER_FILE;
     else
         echo "用户已存在!"
+        return 1
     fi
 # 重新生成配置文件，并加载
     if [ -e $SSSERVER_PID ]; then
@@ -139,6 +149,7 @@ $PORT $PWORD $CMETHED $TLIMIT" >> $USER_FILE;
     fi
 # 更新流量记录文件
     update_or_create_traffic_file_from_users
+    calc_remaining
 }
 
 del_user () {
@@ -155,6 +166,242 @@ del_user () {
     fi
 # 更新流量记录文件
     update_or_create_traffic_file_from_users
+    calc_remaining
+}
+
+change_user () {
+    PORT=$1
+    PWORD=$2
+    TLIMIT=$3
+    TLIMIT=`bytes2gb $TLIMIT`
+    if [ ! -e $USER_FILE ]; then
+        echo "目前还无用户，请先添加用户" 
+        return 1
+    fi
+    if grep -q "^\s*$PORT\s" $USER_FILE; then
+        cat $USER_FILE |
+        awk '
+        {
+            if($1=='$PORT') {
+                printf("'$PORT' '$PWORD' '$TLIMIT'\n");
+            } else {
+                print $0
+            }
+        }' > $USER_FILE.tmp;
+        mv $USER_FILE.tmp $USER_FILE
+        # 重新生成配置文件，并加载
+        if [ -e $SSSERVER_PID ]; then
+            create_json
+            kill -s SIGQUIT `cat $SSSERVER_PID`
+            add_rules $PORT
+            run_ssserver
+        fi
+        # 更新流量记录文件
+        update_or_create_traffic_file_from_users
+        calc_remaining
+    else
+        echo "此用户不存在!"
+        return 1
+    fi
+}
+
+change_passwd () {
+    PORT=$1
+    PWORD=$2
+    if [ ! -e $USER_FILE ]; then
+        echo "目前还无用户，请先添加用户" 
+        return 1
+    fi
+    if grep -q "^\s*$PORT\s" $USER_FILE; then
+        cat $USER_FILE |
+        awk '
+        {
+            if($1=='$PORT') {
+                printf("'$PORT' '$PWORD' %s\n", $3);
+            } else {
+                print $0
+            }
+        }' > $USER_FILE.tmp;
+        mv $USER_FILE.tmp $USER_FILE
+        # 重新生成配置文件，并加载
+        if [ -e $SSSERVER_PID ]; then
+            create_json
+            kill -s SIGQUIT `cat $SSSERVER_PID`
+            add_rules $PORT
+            run_ssserver
+        fi
+        # 更新流量记录文件
+        update_or_create_traffic_file_from_users
+        calc_remaining
+    else
+        echo "此用户不存在!"
+        return 1
+    fi
+}
+
+change_limit () {
+    PORT=$1
+    TLIMIT=$2
+    TLIMIT=`bytes2gb $TLIMIT`
+    if [ ! -e $USER_FILE ]; then
+        echo "目前还无用户，请先添加用户"
+        return 1
+    fi
+    if grep -q "^\s*$PORT\s" $USER_FILE; then
+        cat $USER_FILE |
+        awk '
+        {
+            if($1=='$PORT') {
+                printf("'$PORT' %s '$TLIMIT'\n", $2);
+            } else {
+                print $0
+            }
+        }' > $USER_FILE.tmp;
+        mv $USER_FILE.tmp $USER_FILE
+        # 更新流量记录文件
+        update_or_create_traffic_file_from_users
+        calc_remaining
+    else
+        echo "此用户不存在!"
+        return 1
+    fi
+}
+
+change_all_limit () {
+    TLIMIT=$1
+    TLIMIT=`bytes2gb $TLIMIT`
+    if [ ! -e $USER_FILE ]; then
+        echo "目前还无用户，请先添加用户"
+        return 1
+    fi
+    cat $USER_FILE |
+    awk '
+    {
+        if($0 !~ /^#/ && $0 !~ /^\s.*$/) {
+            printf("%s %s '$TLIMIT'\n", $1, $2);
+        } else {
+            print $0
+        }
+    }' > $USER_FILE.tmp;
+    mv $USER_FILE.tmp $USER_FILE
+    # 更新流量记录文件
+    update_or_create_traffic_file_from_users
+    calc_remaining
+}
+
+show_user () {
+    if [ $# -eq 0 ]; then
+        cat $TRAFFIC_FILE;
+    else
+        PORT=$1
+        res=`grep "^\s*$PORT\s" $TRAFFIC_FILE`
+        if [ -z "$res" ]; then
+            echo "此用户不存在!"
+        else 
+            head -n1 $TRAFFIC_FILE
+            echo  "$res"
+        fi
+    fi
+}
+
+show_passwd () {
+    if [ $# -eq 0 ]; then
+        cat $USER_FILE;
+    else
+        PORT=$1
+        res=`grep "^\s*$PORT\s" $USER_FILE`
+        if [ -z "$res" ]; then
+            echo "此用户不存在!"
+        else 
+            head -n2 $USER_FILE
+            echo  "$res"
+        fi
+    fi
+}
+reset_limit () {
+    if [ ! -e $USER_FILE ]; then
+        echo "目前还无用户，请先添加用户"
+        return 1
+    fi
+    if [ $# -eq 0 ]; then
+        cat $USER_FILE |
+        awk '
+        {
+            if($0 !~ /^#/ && $0 !~ /^\s.*$/) {
+                printf("%s %s 0\n", $1, $2);
+            } else {
+                print $0
+            }
+        }' > $USER_FILE.tmp;
+        mv $USER_FILE.tmp $USER_FILE
+        # 更新流量记录文件
+        update_or_create_traffic_file_from_users
+        calc_remaining
+    else
+        PORT=$1
+        if grep -q "^\s*$PORT\s" $USER_FILE; then
+            cat $USER_FILE |
+            awk '
+            {
+                if($1=='$PORT') {
+                    printf("'$PORT' %s 0\n", $2);
+                } else {
+                    print $0
+                }
+            }' > $USER_FILE.tmp;
+            mv $USER_FILE.tmp $USER_FILE
+            # 更新流量记录文件
+            update_or_create_traffic_file_from_users
+            calc_remaining
+        else
+            echo "此用户不存在!"
+            return 1
+        fi
+    fi
+}
+
+reset_used () {
+    if [ ! -e $USER_FILE ]; then
+        echo "目前还无用户，请先添加用户"
+        return 1
+    fi
+    while [ -e $TRAFFIC_LOG.lock ]; do
+        sleep 1
+    done
+    touch $TRAFFIC_LOG.lock
+    if [ $# -eq 0 ]; then
+        cat $TRAFFIC_LOG |
+        awk '
+        {
+            if($0 !~ /^#/ && $0 !~ /^\s.*$/) {
+                printf("%-5d\t0\n", $1);
+            } else {
+                print $0
+            }
+        }' > $TRAFFIC_LOG.tmp;
+        mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
+    else
+        PORT=$1
+        if grep -q "^\s*$PORT\s" $USER_FILE; then
+            cat $TRAFFIC_LOG |
+            awk '
+            {
+                if($1=='$PORT') {
+                    printf("%-5d\t0\n", '$PORT');
+                } else {
+                    print $0
+                }
+            }' > $TRAFFIC_LOG.tmp;
+            mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
+        else
+            echo "此用户不存在!"
+            rm $TRAFFIC_LOG.lock
+            return 1
+        fi
+    fi
+    rm $TRAFFIC_LOG.lock
+    # 更新流量记录文件
+    calc_remaining
 }
 
 case $1 in
@@ -166,8 +413,55 @@ case $1 in
         shift
         del_user $1
         ;;
-    list )
-        list_rules
+    show )
+        shift
+        show_user $1
+        ;;
+    showpw )
+        shift
+        show_passwd $1
+        ;;
+    change )
+        shift
+        change_user $1 $2 $3
+        ;;
+    cpw )
+        shift
+        change_passwd $1 $2
+        ;;
+    clim )
+        shift
+        change_limit $1 $2
+        ;;
+    rlim )
+        shift
+        if [ $# -eq 0 ]; then
+            echo "请指定用户端口号"
+            exit 1
+        else
+            reset_limit $1
+        fi
+        ;;
+    change_all_limit )
+        shift
+        change_all_limit $1
+        ;;
+    reset_all_limit )
+        shift
+        reset_limit
+        ;;
+    rused )
+        shift
+        if [ $# -eq 0 ]; then
+            echo "请指定用户端口号"
+            exit 1
+        else
+            reset_used $1
+        fi
+        ;;
+    reset_all_used )
+        shift
+        reset_used
         ;;
     start )
         start_ss 
