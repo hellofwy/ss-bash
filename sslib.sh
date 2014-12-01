@@ -25,13 +25,6 @@ SSSERVER=ssserver
 
 SSSERVER_NAME=`basename $SSSERVER`
 
-SOURCE="${BASH_SOURCE[0]}"
-while [ -h "$SOURCE" ]; do 
-      DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
-      SOURCE="$(readlink "$SOURCE")"
-      [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" 
-done
-DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 TMPDIR=$DIR/tmp
 if [ ! -e $TMPDIR ]; then
     mkdir $TMPDIR;

@@ -20,7 +20,15 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-. sslib.sh
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do 
+      DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+      SOURCE="$(readlink "$SOURCE")"
+      [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" 
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+
+. $DIR/sslib.sh 
 
 update_or_create_traffic_file_from_users
 init_ipt_chains 
