@@ -18,7 +18,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# 流量采样间隔,单位为秒
 INTERVEL=300
+# 指定Shadowsocks程序文件
+SSSERVER=ssserver
+
+SSSERVER_NAME=`basename $SSSERVER`
 
 SOURCE="${BASH_SOURCE[0]}"
 while [ -h "$SOURCE" ]; do 

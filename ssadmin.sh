@@ -57,13 +57,13 @@ create_json () {
 }
 
 run_ssserver () {
-    ssserver -qq -c $JSON_FILE 2>/dev/null >/dev/null &
+    $SSSERVER -qq -c $JSON_FILE 2>/dev/null >/dev/null &
     echo $! > $SSSERVER_PID 
 }
 
 check_ssserver () {
     if [ -e $SSSERVER_PID ]; then
-        ps $(cat $SSSERVER_PID) 2>/dev/null | grep ssserver 2>/dev/null
+        ps $(cat $SSSERVER_PID) 2>/dev/null | grep $SSSERVER_NAME 2>/dev/null
         return $?
     else
         return 1
@@ -569,9 +569,19 @@ case $1 in
         usage
         exit 0;
         ;;
+    -v|v|version )
+        echo 'ss-bash Version 0.9, 2014-12-1, Copyright (c) 2014 hellofwy'
+        exit 0;
+        ;;
 esac
 if [ "$EUID" -ne 0 ]; then
     echo "必需以root身份运行，请使用sudo等命令"
+    exit 1;
+fi
+if type $SSSERVER; then
+    :
+else
+    echo "无法找到ssserver程序，请在sslib.sh中指定其路径"
     exit 1;
 fi
 case $1 in

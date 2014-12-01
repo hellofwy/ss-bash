@@ -1,4 +1,8 @@
 用法：
+    显示版本：
+        ssadmin.sh -v|v|version
+    显示帮助：
+        ssadmin.sh [-h|h|help]
     启动ss:
         ssadmin.sh start
     停止ss：
