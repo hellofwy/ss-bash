@@ -38,7 +38,7 @@ TRAFFIC_FILE=$DIR/sstraffic
 SSSERVER_PID=$TMPDIR/ssserver.pid
 SSCOUNTER_PID=$TMPDIR/sscounter.pid
 
-TRA_FORMAT='%-5d\t%s\n'
+TRA_FORMAT='%-5d\t%.0f\n'
 TRAFFIC_LOG=$DIR/traffic.log
 IPT_TRA_LOG=$TMPDIR/ipt_tra.log
 MIN_TRA_LOG=$TMPDIR/min_tra.log
@@ -202,12 +202,12 @@ calc_remaining () {
             printf("\t");
             
             used=uta[port];
-            printf("%s", used);
+            printf("%.0f", used);
             print_in_gb(used);
             printf("\t");
             
             remaining=limits[port]-uta[port];
-            printf("%s", remaining);
+            printf("%.0f", remaining);
             print_in_gb(remaining);
             printf("\n");
         }
