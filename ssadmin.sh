@@ -22,6 +22,9 @@
 
 . sslib.sh
 
+usage () {
+    cat $DIR/sshelp
+}
 
 #根据用户文件生成ssserver配置文件
 create_json () {
@@ -119,6 +122,19 @@ restart_ss () {
     start_ss
 }
     
+soft_restart_ss () {
+    if check_ssserver; then 
+        kill -s SIGQUIT `cat $SSSERVER_PID`
+        kill `cat $SSCOUNTER_PID`
+        rm $SSSERVER_PID $SSCOUNTER_PID
+        del_ipt_chains 2> /dev/null
+        echo 'ss服务器已关闭'
+        start_ss
+    else
+        echo 'ss服务器未启动'
+    fi
+}
+
 status_ss () {
     if check_ssserver; then 
         echo 'ss服务器正在运行'
@@ -137,9 +153,28 @@ bytes2gb () {
     bc |
     awk '{printf("%.0f", $1)}'
 }
-
-add_user () {
+check_port_range () {
     PORT=$1
+    if (( ($PORT > 0) && ($PORT <= 65535 ) )); then
+        return 0
+    else
+        return 1
+    fi
+}
+add_user () {
+    if [ "$#" -ne 3 ]; then
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
+    PORT=$1
+    if check_port_range $PORT; then
+        :
+    else
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     PWORD=$2
     TLIMIT=$3
     TLIMIT=`bytes2gb $TLIMIT`
@@ -174,7 +209,19 @@ $PORT $PWORD $TLIMIT" >> $USER_FILE;
 }
 
 del_user () {
+    if [ "$#" -ne 1 ]; then
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     PORT=$1
+    if check_port_range $PORT; then
+        :
+    else
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     if [ -e $USER_FILE ]; then
         sed -i '/^\s*'$PORT'\s/ d' $USER_FILE
     fi
@@ -191,7 +238,19 @@ del_user () {
 }
 
 change_user () {
+    if [ "$#" -ne 3 ]; then
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     PORT=$1
+    if check_port_range $PORT; then
+        :
+    else
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     PWORD=$2
     TLIMIT=$3
     TLIMIT=`bytes2gb $TLIMIT`
@@ -227,7 +286,19 @@ change_user () {
 }
 
 change_passwd () {
+    if [ "$#" -ne 2 ]; then
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     PORT=$1
+    if check_port_range $PORT; then
+        :
+    else
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     PWORD=$2
     if [ ! -e $USER_FILE ]; then
         echo "目前还无用户，请先添加用户" 
@@ -261,7 +332,19 @@ change_passwd () {
 }
 
 change_limit () {
+    if [ "$#" -ne 2 ]; then
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     PORT=$1
+    if check_port_range $PORT; then
+        :
+    else
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     TLIMIT=$2
     TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
@@ -289,6 +372,11 @@ change_limit () {
 }
 
 change_all_limit () {
+    if [ "$#" -ne 1 ]; then
+        echo "参数输入错误"
+        usage;
+        return 1
+    fi
     TLIMIT=$1
     TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
@@ -314,7 +402,18 @@ show_user () {
     if [ $# -eq 0 ]; then
         cat $TRAFFIC_FILE;
     else
+        if [ "$#" -ne 1 ]; then
+            usage;
+            return 1
+        fi
         PORT=$1
+        if check_port_range $PORT; then
+            :
+        else
+            echo "参数输入错误"
+            usage;
+            return 1
+        fi
         res=`grep "^\s*$PORT\s" $TRAFFIC_FILE`
         if [ -z "$res" ]; then
             echo "此用户不存在!"
@@ -329,7 +428,19 @@ show_passwd () {
     if [ $# -eq 0 ]; then
         cat $USER_FILE;
     else
+        if [ "$#" -ne 1 ]; then
+            echo "参数输入错误"
+            usage;
+            return 1
+        fi
         PORT=$1
+        if check_port_range $PORT; then
+            :
+        else
+            echo "参数输入错误"
+            usage;
+            return 1
+        fi
         res=`grep "^\s*$PORT\s" $USER_FILE`
         if [ -z "$res" ]; then
             echo "此用户不存在!"
@@ -359,7 +470,19 @@ reset_limit () {
         update_or_create_traffic_file_from_users
         calc_remaining
     else
+        if [ "$#" -ne 1 ]; then
+            echo "参数输入错误"
+            usage;
+            return 1
+        fi
         PORT=$1
+        if check_port_range $PORT; then
+            :
+        else
+            echo "参数输入错误"
+            usage;
+            return 1
+        fi
         if grep -q "^\s*$PORT\s" $USER_FILE; then
             cat $USER_FILE |
             awk '
@@ -402,7 +525,19 @@ reset_used () {
         }' > $TRAFFIC_LOG.tmp;
         mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
     else
+        if [ "$#" -ne 1 ]; then
+            echo "参数输入错误"
+            usage;
+            return 1
+        fi
         PORT=$1
+        if check_port_range $PORT; then
+            :
+        else
+            echo "参数输入错误"
+            usage;
+            return 1
+        fi
         if grep -q "^\s*$PORT\s" $USER_FILE; then
             cat $TRAFFIC_LOG |
             awk '
@@ -425,9 +560,6 @@ reset_used () {
     calc_remaining
 }
 
-usage () {
-    cat $DIR/sshelp
-}
 if [ "$#" -eq 0 ]; then
     usage
     exit 0
@@ -512,6 +644,12 @@ case $1 in
         ;;
     status )
         status_ss
+        ;;
+    soft_restart )
+        soft_restart_ss 
+        ;;
+    * )
+        usage
         ;;
 esac
 

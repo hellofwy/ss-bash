@@ -7,10 +7,14 @@
         ssadmin.sh status
     重启ss：
         ssadmin.sh restart
+    软重启ss：
+        ssadmin.sh soft_restart
+        在不影响现有连接的情况下重启ss服务。用于ss服务参数修改，
+        和手动直接修改配置文件后，重启ss服务。
     添加用户：
         ssadmin.sh add port passwd limit
-            port：端口号
-            passwd：密码
+            port：端口号, 0<port<=65535
+            passwd：密码, 不能有空格，引号等字符
             limit：流量限制，可以用K/M/G/T、KB/MB/GB/TB等（不区
                    分大小写）。支持小数。比如10.5G、10.5GB等。
                    1KB=1024 bytes，以此类推。
