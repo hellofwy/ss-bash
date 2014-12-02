@@ -174,6 +174,9 @@ calc_remaining () {
     }
     BEGIN {
         i=1;
+        totallim=0;
+        totalused=0;
+        totalrem=0;
     }
     {
         if(FILENAME=="'$USER_FILE'"){
@@ -200,17 +203,31 @@ calc_remaining () {
             printf("%s", limit);
             print_in_gb(limit);
             printf("\t");
+            totallim+=limit;
             
             used=uta[port];
             printf("%.0f", used);
             print_in_gb(used);
             printf("\t");
+            totalused+=used;
             
             remaining=limits[port]-uta[port];
             printf("%.0f", remaining);
             print_in_gb(remaining);
             printf("\n");
+            totalrem+=remaining;
         }
+            printf("%s\t", "Total");
+            printf("%.0f", totallim);
+            print_in_gb(totallim);
+            printf("\t");
+            printf("%.0f", totalused);
+            print_in_gb(totalused);
+            printf("\t");
+            printf("%.0f", totalrem);
+            print_in_gb(totalrem);
+            printf("\n");
+        
     }' $USER_FILE $TRAFFIC_LOG > $TRAFFIC_FILE.tmp
     mv $TRAFFIC_FILE.tmp $TRAFFIC_FILE
     rm $TRAFFIC_FILE.lock
