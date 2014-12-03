@@ -33,6 +33,10 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 usage () {
     cat $DIR/sshelp
 }
+wrong_para_prompt() {
+    echo "参数输入错误!"
+    echo "查看帮助：ssadmin.sh -h"
+}
 
 #根据用户文件生成ssserver配置文件
 create_json () {
@@ -78,6 +82,15 @@ check_ssserver () {
     fi
 }
 
+check_sscounter () {
+    if [ -e $SSCOUNTER_PID ]; then
+        ps $(cat $SSCOUNTER_PID) 2>/dev/null | grep sscounter 2>/dev/null
+        return $?
+    else
+        return 1
+    fi
+}
+
 start_ss () {
     if [ ! -e $USER_FILE ]; then
         echo "还没有用户，请先添加一个用户"
@@ -85,7 +98,7 @@ start_ss () {
     fi
     if [ -e $SSSERVER_PID ]; then
         if check_ssserver; then
-            echo 'ss服务已启动，同一文件下不能启动多次！'
+            echo 'ss服务已启动，同一实例不能启动多次！'
             return 1
         else
             rm $SSSERVER_PID
@@ -94,38 +107,49 @@ start_ss () {
     create_json
 
     if [ -e $SSCOUNTER_PID ]; then
-        ps $(cat $SSCOUNTER_PID) | grep sscounter 2>&1 >/dev/null
-        if [ $? -eq 0 ] ; then 
+        if check_sscounter ; then 
             kill `cat $SSCOUNTER_PID`
         else
             rm $SSCOUNTER_PID
         fi
     fi
+
+    echo 'sscounter.sh启动中...'
     ( $DIR/sscounter.sh ) & 
     echo $! > $SSCOUNTER_PID
-    run_ssserver 
-    echo '启动中...'
-    sleep 1
-    if check_ssserver; then 
-        echo 'ss服务器已启动'
+    if check_sscounter; then 
+        echo 'sscounter.sh已启动'
     else
-        echo 'ss服务启动失败'
-        kill `cat $SSCOUNTER_PID`
-        rm $SSCOUNTER_PID
+        echo 'sscounter.sh启动失败'
         return 1
     fi
 
+    echo 'ssserver启动中...'
+    run_ssserver 
+    sleep 1
+    if check_ssserver; then 
+        echo 'ssserver已启动'
+    else
+        echo 'ssserver启动失败'
+        return 1
+    fi
 }
 
 stop_ss () {
     if check_ssserver; then 
         kill `cat $SSSERVER_PID`
-        kill `cat $SSCOUNTER_PID`
-        rm $SSSERVER_PID $SSCOUNTER_PID
+        rm $SSSERVER_PID 
         del_ipt_chains 2> /dev/null
-        echo 'ss服务器已关闭'
+        echo 'ssserver已关闭'
     else
-        echo 'ss服务器未启动'
+        echo 'ssserver未启动'
+    fi
+    if check_sscounter; then 
+        kill `cat $SSCOUNTER_PID`
+        rm $SSCOUNTER_PID
+        echo 'sscounter.sh已关闭'
+    else
+        echo 'sscounter.sh未启动'
     fi
 }
 
@@ -137,21 +161,27 @@ restart_ss () {
 soft_restart_ss () {
     if check_ssserver; then 
         kill -s SIGQUIT `cat $SSSERVER_PID`
+        echo 'ssserver已关闭'
         kill `cat $SSCOUNTER_PID`
+        echo 'sscounter.sh已关闭'
         rm $SSSERVER_PID $SSCOUNTER_PID
         del_ipt_chains 2> /dev/null
-        echo 'ss服务器已关闭'
         start_ss
     else
-        echo 'ss服务器未启动'
+        echo 'ssserver未启动'
     fi
 }
 
 status_ss () {
     if check_ssserver; then 
-        echo 'ss服务器正在运行'
+        echo 'ssserver正在运行'
     else
-        echo 'ss服务器未启动'
+        echo 'ssserver未启动'
+    fi
+    if check_sscounter; then 
+        echo 'sscounter.sh正在运行'
+    else
+        echo 'sscounter.sh未启动'
     fi
 }
 
@@ -175,16 +205,14 @@ check_port_range () {
 }
 add_user () {
     if [ "$#" -ne 3 ]; then
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PORT=$1
     if check_port_range $PORT; then
         :
     else
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PWORD=$2
@@ -222,16 +250,14 @@ $PORT $PWORD $TLIMIT" >> $USER_FILE;
 
 del_user () {
     if [ "$#" -ne 1 ]; then
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PORT=$1
     if check_port_range $PORT; then
         :
     else
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     if [ -e $USER_FILE ]; then
@@ -241,7 +267,8 @@ del_user () {
     if [ -e $SSSERVER_PID ]; then
         create_json
         kill -s SIGQUIT `cat $SSSERVER_PID`
-        del_rules $PORT
+        del_rules $PORT 2>/dev/null
+        del_reject_rules $PORT 2>/dev/null
         run_ssserver
     fi
 # 更新流量记录文件
@@ -251,16 +278,14 @@ del_user () {
 
 change_user () {
     if [ "$#" -ne 3 ]; then
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PORT=$1
     if check_port_range $PORT; then
         :
     else
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PWORD=$2
@@ -299,16 +324,14 @@ change_user () {
 
 change_passwd () {
     if [ "$#" -ne 2 ]; then
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PORT=$1
     if check_port_range $PORT; then
         :
     else
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PWORD=$2
@@ -345,16 +368,14 @@ change_passwd () {
 
 change_limit () {
     if [ "$#" -ne 2 ]; then
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     PORT=$1
     if check_port_range $PORT; then
         :
     else
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     TLIMIT=$2
@@ -385,8 +406,7 @@ change_limit () {
 
 change_all_limit () {
     if [ "$#" -ne 1 ]; then
-        echo "参数输入错误"
-        usage;
+        wrong_para_prompt;
         return 1
     fi
     TLIMIT=$1
@@ -415,15 +435,14 @@ show_user () {
         cat $TRAFFIC_FILE;
     else
         if [ "$#" -ne 1 ]; then
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         PORT=$1
         if check_port_range $PORT; then
             :
         else
-            echo "参数输入错误"
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         res=`grep "^\s*$PORT\s" $TRAFFIC_FILE`
@@ -441,16 +460,14 @@ show_passwd () {
         cat $USER_FILE;
     else
         if [ "$#" -ne 1 ]; then
-            echo "参数输入错误"
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         PORT=$1
         if check_port_range $PORT; then
             :
         else
-            echo "参数输入错误"
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         res=`grep "^\s*$PORT\s" $USER_FILE`
@@ -483,16 +500,14 @@ reset_limit () {
         calc_remaining
     else
         if [ "$#" -ne 1 ]; then
-            echo "参数输入错误"
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         PORT=$1
         if check_port_range $PORT; then
             :
         else
-            echo "参数输入错误"
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         if grep -q "^\s*$PORT\s" $USER_FILE; then
@@ -538,16 +553,14 @@ reset_used () {
         mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
     else
         if [ "$#" -ne 1 ]; then
-            echo "参数输入错误"
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         PORT=$1
         if check_port_range $PORT; then
             :
         else
-            echo "参数输入错误"
-            usage;
+            wrong_para_prompt;
             return 1
         fi
         if grep -q "^\s*$PORT\s" $USER_FILE; then
@@ -582,7 +595,7 @@ case $1 in
         exit 0;
         ;;
     -v|v|version )
-        echo 'ss-bash Version 1.0-beta, 2014-12-1, Copyright (c) 2014 hellofwy'
+        echo 'ss-bash Version 1.0-beta.3, 2014-12-3, Copyright (c) 2014 hellofwy'
         exit 0;
         ;;
 esac
@@ -669,6 +682,9 @@ case $1 in
         ;;
     soft_restart )
         soft_restart_ss 
+        ;;
+    lrules )
+        list_rules
         ;;
     * )
         usage

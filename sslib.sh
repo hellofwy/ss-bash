@@ -87,6 +87,14 @@ del_rules () {
     iptables -D $SS_OUT_RULES -p udp --sport $PORT -j ACCEPT
 }
 
+del_reject_rules () {
+    PORT=$1;
+    iptables -D $SS_IN_RULES -p tcp --dport $PORT -j REJECT
+    iptables -D $SS_OUT_RULES -p tcp --sport $PORT -j REJECT
+    iptables -D $SS_IN_RULES -p udp --dport $PORT -j REJECT
+    iptables -D $SS_OUT_RULES -p udp --sport $PORT -j REJECT
+}
+
 list_rules () {
     iptables -vnx -L $SS_IN_RULES
     iptables -vnx -L $SS_OUT_RULES

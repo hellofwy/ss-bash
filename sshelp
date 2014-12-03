@@ -49,3 +49,5 @@
         ssadmin.sh rlim port
     全部用户流量限制置零：
         ssadmin.sh reset_all_limit
+    显示已添加的iptables规则：
+        ssadmin.sh lrules
