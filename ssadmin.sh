@@ -38,7 +38,7 @@ wrong_para_prompt() {
     echo "Try 'ssadmin.sh -h' for more information."
 }
 
-#根据用户文件生成ssserver配置文件
+# Generate ssserver configuration files based on user files
 create_json () {
     echo '{' > $JSON_FILE.tmp
     sed -E 's/(.*)/    \1/' $DIR/ssmlt.template >> $JSON_FILE.tmp 
