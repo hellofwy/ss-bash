@@ -595,7 +595,7 @@ case $1 in
         exit 0;
         ;;
     -v|v|version )
-        echo 'ss-bash Version 1.0-beta.3-en, 2016-2-5, Copyright (c) 2016 Yaoshicn'
+        echo 'ss-bash Version 1.0-beta.3-en, 2016-2-5, Copyright (c) 2014 hellofwy'
         exit 0;
         ;;
 esac
