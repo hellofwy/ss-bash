@@ -39,20 +39,20 @@ check_traffic_against_limits
 
 ISFIRST=1;
 while true; do
-# 是否第一次运行，第一次则生成临时流量记录
+# Generate temporary traffic records if you run first time
     if [ $ISFIRST -eq 1 ]; then 
         get_traffic_from_iptables_first_time
         ISFIRST=0;
         sleep $INTERVEL 
         continue
     else
-#计算每个时间间隔内的流量使用量
+# Calculate the traffic usage during each time interval
         get_traffic_from_iptables_now
         calc_traffic_between_intervel
     fi
-# 将流量记录添加到文件中 
+# Add traffic records to a file 
     update_traffic_record
-# 验证流量是否超过预设值
+# Verify whether the traffic exceeds the preset value
     calc_remaining
     check_traffic_against_limits
     sleep $INTERVEL 

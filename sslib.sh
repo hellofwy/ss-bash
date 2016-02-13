@@ -18,9 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# 流量采样间隔,单位为秒
+# Set sampling interval in seconds
 INTERVEL=300
-# 指定Shadowsocks程序文件
+# Specify the Shadowsocks program file
 SSSERVER=ssserver
 
 SSSERVER_NAME=`basename $SSSERVER`
@@ -113,7 +113,7 @@ add_new_rules () {
 }
 
 update_or_create_traffic_file_from_users () {
-#根据用户文件生成或更新流量记录
+# Generate or update traffic records based on user files(ssusers)
     while [ -e $TRAFFIC_LOG.lock ]; do
         sleep 1
     done
@@ -242,7 +242,7 @@ calc_remaining () {
 }
 
 check_traffic_against_limits () {
-#根据用户文件查看流量是否超限
+# Check whether the traffic is out of the limit according to the user files(ssusers)
     ports_2ban=`awk '
     BEGIN {
         i=1;

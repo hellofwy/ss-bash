@@ -1,53 +1,36 @@
-用法：
-    显示版本：
-        ssadmin.sh -v|v|version
-    显示帮助：
-        ssadmin.sh [-h|h|help]
-    启动ss:
-        ssadmin.sh start
-    停止ss：
-        ssadmin.sh stop
-    查看ss状态：
-        ssadmin.sh status
-    重启ss：
-        ssadmin.sh restart
-    软重启ss：
-        ssadmin.sh soft_restart
-        在不影响现有连接的情况下重启ss服务。用于ss服务参数修改，
-        和手动直接修改配置文件后，重启ss服务。
-    添加用户：
-        ssadmin.sh add port passwd limit
-            port：端口号, 0<port<=65535
-            passwd：密码, 不能有空格，引号等字符
-            limit：流量限制，可以用K/M/G/T、KB/MB/GB/TB等（不区
-                   分大小写）。支持小数。比如10.5G、10.5GB等。
-                   1KB=1024 bytes，以此类推。
-        示例： ssadmin.sh add 3333 abcde 10.5G
-    显示用户流量信息：
-        ssadmin.sh show port
-    显示所有用户流量信息：
-        ssadmin.sh show
-    显示用户密码信息：
-        ssadmin.sh showpw port
-    显示所有用户密码信息：
-        ssadmin.sh showpw
-    删除用户：
-        ssadmin.sh del port
-    修改用户：
-        ssadmin.sh change port passwd limit
-    修改用户密码：
-        ssadmin.sh cpw port passwd
-    修改用户流量限制：
-        ssadmin.sh clim port limit
-    修改所有用户流量限制：
-        ssadmin.sh change_all_limit limit
-    用户流量使用量置零：
-        ssadmin.sh rused limit
-    所有用户流量使用量置零：
-        ssadmin.sh reset_all_used
-    用户流量限制置零：
-        ssadmin.sh rlim port
-    全部用户流量限制置零：
-        ssadmin.sh reset_all_limit
-    显示已添加的iptables规则：
-        ssadmin.sh lrules
+usage：ssadmin.sh [option] [port] [passwd] [limit]
+    - port：port number, 0 < port <= 65535
+    - passwd：password, can not have spaces, quotes, and other characters
+    - limit：traffic limitation，(support K/M/G/T or KB/MB/GB/TB)
+    example: ssadmin.sh add 3333 abcde 10.5G
+Options and arguments:
+-v      : print the ss-bash version and exit (also v|version)
+-h      : print this help message and exit (also h|help)
+
+start   : start ss service
+stop    : stop ss service
+status  : show ss service status
+restart : restart service
+soft_restart: restart service without affecting the existing ss service
+
+add    [port] [passwd] [limit]: add user
+change [port] [passwd] [limit]: change the user info
+del    [port]: delete the user who is using the port
+
+show       : show all ports traffic info
+show [port]: show the traffic info of the user who is using the port
+
+showpw                : show all passwords
+showpw [port]         : show the password of the user who is using the port
+cpw    [port] [passwd]: change the password of the user who is using the port
+
+clim [port] [limit]     : change the traffic limitation of the user who is using the port
+change_all_limit [limit]: change the traffic limitation of all user
+
+rused [port]   : set the traffic already used of the user who is using the port as 0
+reset_all_used : set the traffic already used of all users as 0
+
+rlim [port]    : set the traffic limitation of the user who is using the port as 0
+reset_all_limit: set the traffic limitation of all users as 0
+
+lrules: show iptables rules has been added

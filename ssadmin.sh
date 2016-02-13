@@ -34,11 +34,11 @@ usage () {
     cat $DIR/sshelp
 }
 wrong_para_prompt() {
-    echo "参数输入错误!"
-    echo "查看帮助：ssadmin.sh -h"
+    echo "Parameter input error!"
+    echo "Try 'ssadmin.sh -h' for more information."
 }
 
-#根据用户文件生成ssserver配置文件
+# Generate ssserver configuration files based on user files
 create_json () {
     echo '{' > $JSON_FILE.tmp
     sed -E 's/(.*)/    \1/' $DIR/ssmlt.template >> $JSON_FILE.tmp 
@@ -93,12 +93,12 @@ check_sscounter () {
 
 start_ss () {
     if [ ! -e $USER_FILE ]; then
-        echo "还没有用户，请先添加一个用户"
+        echo "No user! please add a user."
         return 1
     fi
     if [ -e $SSSERVER_PID ]; then
         if check_ssserver; then
-            echo 'ss服务已启动，同一实例不能启动多次！'
+            echo 'sserver has started！'
             return 1
         else
             rm $SSSERVER_PID
@@ -114,23 +114,23 @@ start_ss () {
         fi
     fi
 
-    echo 'sscounter.sh启动中...'
+    echo 'Starting sscounter.sh...'
     ( $DIR/sscounter.sh ) & 
     echo $! > $SSCOUNTER_PID
     if check_sscounter; then 
-        echo 'sscounter.sh已启动'
+        echo 'sscounter.sh has started'
     else
-        echo 'sscounter.sh启动失败'
+        echo 'sscounter.sh failed to start'
         return 1
     fi
 
-    echo 'ssserver启动中...'
+    echo 'Starting ssserver...'
     run_ssserver 
     sleep 1
     if check_ssserver; then 
-        echo 'ssserver已启动'
+        echo 'ssserver has'
     else
-        echo 'ssserver启动失败'
+        echo 'ssserver failed to start'
         return 1
     fi
 }
@@ -140,16 +140,16 @@ stop_ss () {
         kill `cat $SSSERVER_PID`
         rm $SSSERVER_PID 
         del_ipt_chains 2> /dev/null
-        echo 'ssserver已关闭'
+        echo 'ssserver stopped'
     else
-        echo 'ssserver未启动'
+        echo 'ssserver was not started'
     fi
     if check_sscounter; then 
         kill `cat $SSCOUNTER_PID`
         rm $SSCOUNTER_PID
-        echo 'sscounter.sh已关闭'
+        echo 'sscounter.sh stopped'
     else
-        echo 'sscounter.sh未启动'
+        echo 'sscounter.sh was not started'
     fi
 }
 
@@ -161,27 +161,27 @@ restart_ss () {
 soft_restart_ss () {
     if check_ssserver; then 
         kill -s SIGQUIT `cat $SSSERVER_PID`
-        echo 'ssserver已关闭'
+        echo 'ssserver stopped'
         kill `cat $SSCOUNTER_PID`
-        echo 'sscounter.sh已关闭'
+        echo 'sscounter.sh stopped'
         rm $SSSERVER_PID $SSCOUNTER_PID
         del_ipt_chains 2> /dev/null
         start_ss
     else
-        echo 'ssserver未启动'
+        echo 'ssserver was not started'
     fi
 }
 
 status_ss () {
     if check_ssserver; then 
-        echo 'ssserver正在运行'
+        echo 'ssserver is running'
     else
-        echo 'ssserver未启动'
+        echo 'ssserver was not started'
     fi
     if check_sscounter; then 
-        echo 'sscounter.sh正在运行'
+        echo 'sscounter.sh is running'
     else
-        echo 'sscounter.sh未启动'
+        echo 'sscounter.sh was not started'
     fi
 }
 
@@ -220,8 +220,8 @@ add_user () {
     TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
         echo "\
-# 以空格、制表符分隔
-# 端口 密码 流量限制
+# Split by \t and space
+# port password limitation
 # 2345 abcde 1000000" > $USER_FILE;
     fi
     cat $USER_FILE |
@@ -233,17 +233,17 @@ add_user () {
         echo "\
 $PORT $PWORD $TLIMIT" >> $USER_FILE;
     else
-        echo "用户已存在!"
+        echo "The user you were trying to create already exists."
         return 1
     fi
-# 重新生成配置文件，并加载
+# Rebuild and load the config
     if [ -e $SSSERVER_PID ]; then
         create_json
         kill -s SIGQUIT `cat $SSSERVER_PID`
         add_rules $PORT
         run_ssserver
     fi
-# 更新流量记录文件
+# Update traffic log file
     update_or_create_traffic_file_from_users
     calc_remaining
 }
@@ -263,7 +263,7 @@ del_user () {
     if [ -e $USER_FILE ]; then
         sed -i '/^\s*'$PORT'\s/ d' $USER_FILE
     fi
-# 重新生成配置文件，并加载
+# Rebuild and load the config
     if [ -e $SSSERVER_PID ]; then
         create_json
         kill -s SIGQUIT `cat $SSSERVER_PID`
@@ -271,7 +271,7 @@ del_user () {
         del_reject_rules $PORT 2>/dev/null
         run_ssserver
     fi
-# 更新流量记录文件
+# Update traffic log file
     update_or_create_traffic_file_from_users
     calc_remaining
 }
@@ -292,7 +292,7 @@ change_user () {
     TLIMIT=$3
     TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
-        echo "目前还无用户，请先添加用户" 
+        echo "No user! Please add a user first" 
         return 1
     fi
     if grep -q "^\s*$PORT\s" $USER_FILE; then
@@ -306,18 +306,18 @@ change_user () {
             }
         }' > $USER_FILE.tmp;
         mv $USER_FILE.tmp $USER_FILE
-        # 重新生成配置文件，并加载
+        # Rebuild and load the config
         if [ -e $SSSERVER_PID ]; then
             create_json
             kill -s SIGQUIT `cat $SSSERVER_PID`
             add_rules $PORT
             run_ssserver
         fi
-        # 更新流量记录文件
+        # Update traffic log file
         update_or_create_traffic_file_from_users
         calc_remaining
     else
-        echo "此用户不存在!"
+        echo "This user does not exist!"
         return 1
     fi
 }
@@ -336,7 +336,7 @@ change_passwd () {
     fi
     PWORD=$2
     if [ ! -e $USER_FILE ]; then
-        echo "目前还无用户，请先添加用户" 
+        echo "No user! Please add a user first" 
         return 1
     fi
     if grep -q "^\s*$PORT\s" $USER_FILE; then
@@ -350,18 +350,18 @@ change_passwd () {
             }
         }' > $USER_FILE.tmp;
         mv $USER_FILE.tmp $USER_FILE
-        # 重新生成配置文件，并加载
+        # Rebuild and load the config
         if [ -e $SSSERVER_PID ]; then
             create_json
             kill -s SIGQUIT `cat $SSSERVER_PID`
             add_rules $PORT
             run_ssserver
         fi
-        # 更新流量记录文件
+        # Update traffic log file
         update_or_create_traffic_file_from_users
         calc_remaining
     else
-        echo "此用户不存在!"
+        echo "This user does not exist!"
         return 1
     fi
 }
@@ -381,7 +381,7 @@ change_limit () {
     TLIMIT=$2
     TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
-        echo "目前还无用户，请先添加用户"
+        echo "No user! Please add a user first"
         return 1
     fi
     if grep -q "^\s*$PORT\s" $USER_FILE; then
@@ -395,11 +395,11 @@ change_limit () {
             }
         }' > $USER_FILE.tmp;
         mv $USER_FILE.tmp $USER_FILE
-        # 更新流量记录文件
+        # Update traffic log file
         update_or_create_traffic_file_from_users
         calc_remaining
     else
-        echo "此用户不存在!"
+        echo "This user does not exist!"
         return 1
     fi
 }
@@ -412,7 +412,7 @@ change_all_limit () {
     TLIMIT=$1
     TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
-        echo "目前还无用户，请先添加用户"
+        echo "No user! Please add a user first"
         return 1
     fi
     cat $USER_FILE |
@@ -425,7 +425,7 @@ change_all_limit () {
         }
     }' > $USER_FILE.tmp;
     mv $USER_FILE.tmp $USER_FILE
-    # 更新流量记录文件
+    # Update traffic log file
     update_or_create_traffic_file_from_users
     calc_remaining
 }
@@ -447,7 +447,7 @@ show_user () {
         fi
         res=`grep "^\s*$PORT\s" $TRAFFIC_FILE`
         if [ -z "$res" ]; then
-            echo "此用户不存在!"
+            echo "This user does not exist!"
         else 
             head -n1 $TRAFFIC_FILE
             echo  "$res"
@@ -472,7 +472,7 @@ show_passwd () {
         fi
         res=`grep "^\s*$PORT\s" $USER_FILE`
         if [ -z "$res" ]; then
-            echo "此用户不存在!"
+            echo "This user does not exist!"
         else 
             head -n2 $USER_FILE
             echo  "$res"
@@ -481,7 +481,7 @@ show_passwd () {
 }
 reset_limit () {
     if [ ! -e $USER_FILE ]; then
-        echo "目前还无用户，请先添加用户"
+        echo "No user! Please add a user first"
         return 1
     fi
     if [ $# -eq 0 ]; then
@@ -495,7 +495,7 @@ reset_limit () {
             }
         }' > $USER_FILE.tmp;
         mv $USER_FILE.tmp $USER_FILE
-        # 更新流量记录文件
+        # Update traffic log file
         update_or_create_traffic_file_from_users
         calc_remaining
     else
@@ -521,11 +521,11 @@ reset_limit () {
                 }
             }' > $USER_FILE.tmp;
             mv $USER_FILE.tmp $USER_FILE
-            # 更新流量记录文件
+            # Update traffic log file
             update_or_create_traffic_file_from_users
             calc_remaining
         else
-            echo "此用户不存在!"
+            echo "This user does not exist!"
             return 1
         fi
     fi
@@ -533,7 +533,7 @@ reset_limit () {
 
 reset_used () {
     if [ ! -e $USER_FILE ]; then
-        echo "目前还无用户，请先添加用户"
+        echo "No user! Please add a user first"
         return 1
     fi
     while [ -e $TRAFFIC_LOG.lock ]; do
@@ -575,13 +575,13 @@ reset_used () {
             }' > $TRAFFIC_LOG.tmp;
             mv $TRAFFIC_LOG.tmp $TRAFFIC_LOG
         else
-            echo "此用户不存在!"
+            echo "This user does not exist!"
             rm $TRAFFIC_LOG.lock
             return 1
         fi
     fi
     rm $TRAFFIC_LOG.lock
-    # 更新流量记录文件
+    # Update traffic log file
     calc_remaining
 }
 
@@ -595,18 +595,18 @@ case $1 in
         exit 0;
         ;;
     -v|v|version )
-        echo 'ss-bash Version 1.0-beta.3, 2014-12-3, Copyright (c) 2014 hellofwy'
+        echo 'ss-bash Version 1.0-beta.3-en, 2016-2-5, Copyright (c) 2014 hellofwy'
         exit 0;
         ;;
 esac
 if [ "$EUID" -ne 0 ]; then
-    echo "必需以root身份运行，请使用sudo等命令"
+    echo "Permission denied!"
     exit 1;
 fi
 if type $SSSERVER 2>&1 >/dev/null; then
     :
 else
-    echo "无法找到ssserver程序，请在sslib.sh中指定其路径"
+    echo "Command ssserver not found, please set the path to ssserver in sslib.sh"
     exit 1;
 fi
 case $1 in
@@ -641,7 +641,7 @@ case $1 in
     rlim )
         shift
         if [ $# -eq 0 ]; then
-            echo "请指定用户端口号"
+            echo "Please specify the port number"
             exit 1
         else
             reset_limit $1
@@ -658,7 +658,7 @@ case $1 in
     rused )
         shift
         if [ $# -eq 0 ]; then
-            echo "请指定用户端口号"
+            echo "Please specify the port number"
             exit 1
         else
             reset_used $1
