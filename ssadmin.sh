@@ -98,7 +98,7 @@ start_ss () {
     fi
     if [ -e $SSSERVER_PID ]; then
         if check_ssserver; then
-            echo 'sserver has started！'
+            echo 'ssserver has started！'
             return 1
         else
             rm $SSSERVER_PID
@@ -128,7 +128,7 @@ start_ss () {
     run_ssserver 
     sleep 1
     if check_ssserver; then 
-        echo 'ssserver has'
+        echo 'ssserver has started'
     else
         echo 'ssserver failed to start'
         return 1
@@ -220,7 +220,7 @@ add_user () {
     TLIMIT=`bytes2gb $TLIMIT`
     if [ ! -e $USER_FILE ]; then
         echo "\
-# Split by \t and space
+# Split by \t or space
 # port password limitation
 # 2345 abcde 1000000" > $USER_FILE;
     fi
@@ -600,13 +600,13 @@ case $1 in
         ;;
 esac
 if [ "$EUID" -ne 0 ]; then
-    echo "Permission denied!"
+    echo "Permission denied! Must run as root!"
     exit 1;
 fi
 if type $SSSERVER 2>&1 >/dev/null; then
     :
 else
-    echo "Command ssserver not found, please set the path to ssserver in sslib.sh"
+    echo "Command ssserver not found, please set the path of ssserver in sslib.sh"
     exit 1;
 fi
 case $1 in

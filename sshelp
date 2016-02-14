@@ -1,6 +1,6 @@
 usage：ssadmin.sh [option] [port] [passwd] [limit]
     - port：port number, 0 < port <= 65535
-    - passwd：password, can not have spaces, quotes, and other characters
+    - passwd：password, can not have spaces, quotes, and possibly other special characters
     - limit：traffic limitation，(support K/M/G/T or KB/MB/GB/TB)
     example: ssadmin.sh add 3333 abcde 10.5G
 Options and arguments:
@@ -11,7 +11,7 @@ start   : start ss service
 stop    : stop ss service
 status  : show ss service status
 restart : restart service
-soft_restart: restart service without affecting the existing ss service
+soft_restart: restart service without affecting the existing ss connections
 
 add    [port] [passwd] [limit]: add user
 change [port] [passwd] [limit]: change the user info
@@ -34,3 +34,4 @@ rlim [port]    : set the traffic limitation of the user who is using the port as
 reset_all_limit: set the traffic limitation of all users as 0
 
 lrules: show iptables rules has been added
+
